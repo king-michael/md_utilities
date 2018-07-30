@@ -49,7 +49,11 @@ def read_ave_time(fname, dim=1, dtype=float):
     init = True
     
     # read in file
-    lines = open(fname, 'r').readlines()
+    if fname[-3:] == '.gz':
+        import gzip
+        lines = gzip.open(fname, 'r').readlines()
+    else:
+        lines = open(fname, 'r').readlines()
     iter_lines = iter(lines)
 
     # first parse of the file to read in the data
