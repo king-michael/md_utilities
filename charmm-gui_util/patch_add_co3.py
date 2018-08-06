@@ -314,7 +314,7 @@ else:
 # segid carbid
 # number 
 find = 'segid @posid .or. segid @negid'
-sub  = 'segid @posid .or. segid @negid .or. segid @carbid' + find
+sub  = 'segid @posid .or. segid @negid .or. segid @carbid'
 assert len(inp_file.replace(find,sub,1)) != len(inp_file), find
 inp_file=inp_file.replace(find,sub)
 
