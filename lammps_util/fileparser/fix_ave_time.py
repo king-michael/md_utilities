@@ -50,8 +50,8 @@ def read_ave_time(fname, dim=1, dtype=float):
     
     # read in file
     if fname[-3:] == '.gz':
-        import giz
-        lines = giz.open(fname, 'r').readlines()
+        import gzip
+        lines = gzip.open(fname, 'r').readlines()
     else:
         lines = open(fname, 'r').readlines()
     iter_lines = iter(lines)
