@@ -104,7 +104,10 @@ def read_ave_time(fname, dim=1, dtype=float):
 
     # counter for timestep
     frame = 0
-    
+
+    # reset iteration
+    iter_lines = iter(lines)
+
     # read in data
     for line in iter_lines:
         line = line.strip()
@@ -118,7 +121,7 @@ def read_ave_time(fname, dim=1, dtype=float):
         timestep, nvalues = int(line_split[0]), int(line_split[1])
 
         # add time step
-        timesteps[n_frames] = int(timestep)
+        timesteps[frame] = int(timestep)
 
         # parse the values per timestep
         for ival in range(nvalues):
