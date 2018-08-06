@@ -139,7 +139,9 @@ def patch_file(fname, list_replacements, output=None, backup=True, verbose=True)
             replaced_file = inp_file.replace(find, sub)
         else:
             replaced_file = inp_file.replace(find, sub, count)
-        assert len(replaced_file) != len(inp_file), "Could not find:\n{}".format(find)
+        if len(replaced_file) == len(inp_file):
+            if line[-1] != 'MC':
+                raise StandardError("Could not find:\n{}\nLINE:\n{}".format(line[1],line))
         inp_file = replaced_file
 
     # write output
@@ -166,7 +168,7 @@ if __name__ == '__main__':
             'a1',
             'calc nneg = @nneg + int ( @conc * 6.021 * 0.0001 * @volumn ) * @posval\n',
             '''\
-calc ncarbonate = int( @nneg / @carbonateval )
+calc ncarbonate = int( ( @nneg * @negval ) / @carbonateval )
 calc nneg = @nneg - @ncarbonate * @carbonateval
 '''
         ],
@@ -236,7 +238,7 @@ calc zpos = 0 ! @C / 2.0
             'cons fix sele .not. ( segid CAL .or. segid CLA .or. segid CO3 ) end'
         ],
         [  # decide CO3
-            's1',
+            's',
             'set ion = CLA\n       calc j  = @j - @npos\n',
             '''\
 if j .gt. @nwoneg then 
@@ -249,32 +251,62 @@ if j .gt. @nwoneg then
 '''
         ],
         [  # coor set (TEST)
-            'ap1',
-            'coor set xdir @xpos  ydir @ypos  zdir @zpos select target end\n',
-            '!',
-            '''\
+            's',
+            """! check if the ions are too close to solute 
+    coor set xdir @xpos  ydir @ypos  zdir @zpos select target end""",
+            '''! check if the ions are too close to solute
+    !coor set xdir @xpos  ydir @ypos  zdir @zpos select target end
     coor copy comp
     if ion .eq. CO3 then
       calc phi = 360 * ?random
-      coor rota phi @phi xdir ?random ydir ?random zdir ?random xcen 0 ycen 0 zcen 0 select target end
+      coor rota phi @phi xdir ?random ydir ?random zdir ?random xcen ?XAVE ycen ?YAVE zcen ?ZAVE select target end
     endif
-    coor tran comp xdir -@xpos ydir -@ypos zdir -@zpos select target end
+    coor tran xdir -@xpos ydir -@ypos zdir -@zpos select target end
 '''
         ],
-        [  # dist calculation
-            's1',
-            'coor dist cut',
-            'coor dist comp cut'
+        [
+            's',
+            '''! check if the ions are too close to solute
+    coor set xdir @xpos  ydir @ypos  zdir @zpos select target end''',
+            '''! check if the ions are too close to solute
+    !coor set xdir @xpos  ydir @ypos  zdir @zpos select target end
+    coor copy comp
+    if ion .eq. CO3 then
+      calc phi = 360 * ?random
+      coor rota phi @phi xdir ?random ydir ?random zdir ?random xcen ?XAVE ycen ?YAVE zcen ?ZAVE select target end
+    endif
+    coor tran xdir -@xpos ydir -@ypos zdir -@zpos select target end
+''',
+            'MC'
+        ],
+        # [  # dist calculation
+        #     's',
+        #     'coor dist cut',
+        #     'coor dist comp cut'
+        # ],
+        [  # coor set (SAVE)
+            's',
+            "coor set xdir @xsave  ydir @ysave  zdir @zsave select target end\n       goto doinit\n",
+            """!coor set xdir @xsave  ydir @ysave  zdir @zsave select target end
+       coor copy
+       update
+       goto doinit
+"""
         ],
         [  # coor set (SAVE)
-            'ap1',
-            "coor set xdir @xsave  ydir @ysave  zdir @zsave select target end\n       goto doinit\n",
-            '!',
-            """\
-    else
-       coor tran xdir -@xpos ydir -@ypos zdir -@zpos  select target end 
+            's',
+            "coor set xdir @xsave  ydir @ysave  zdir @zsave select target end\n       goto domc\n",
+            """!coor set xdir @xsave  ydir @ysave  zdir @zsave select target end
+       coor copy
        update
-"""
+       goto domc
+""",
+            'MC'
+        ],
+        [
+            's',
+            'IMAGE BYATOM XCEN',
+            'IMAGE BYRES XCEN'
         ],
         [  # !Image centering by residue
             's',
@@ -285,6 +317,36 @@ if j .gt. @nwoneg then
             's',
             'cons fix sele .not. ( segid CAL .or. segi CLA ) end',
             'cons fix sele .not. ( segid CAL .or. segid CLA .or. segid CO3 ) end'
+        ],
+        [  # ! before the move
+            's',
+            '! before the move\n    coor set xdir @xsave  ydir @ysave  zdir @zsave select target end',
+            '! before the move\n    !coor set xdir @xsave  ydir @ysave  zdir @zsave select target end',
+            'MC'
+        ],
+        [  # ! before the move
+            's',
+            'interaction sele target end sele .not. target end\n    set pener = 99999.0',
+            'interaction comp sele target end sele .not. target end\n    set pener = 99999.0',
+            'MC'
+        ],
+        [  # ! after the move
+            's',
+            """! after the move
+    coor set xdir @xpos  ydir @ypos  zdir @zpos select target end
+    update""",
+            """! after the move
+    !coor set xdir @xpos  ydir @ypos  zdir @zpos select target end
+    update""",
+            'MC'
+        ],
+        [
+            's',
+            'coor set xdir @xsave  ydir @ysave  zdir @zsave select target end\n    update',
+            """!coor set xdir @xsave  ydir @ysave  zdir @zsave select target end
+    coor copy
+    update""",
+            'MC'
         ],
         [  # delete atom
             's',
