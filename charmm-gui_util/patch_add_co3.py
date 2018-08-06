@@ -5,14 +5,11 @@ Patch CHARMM .inp files so we can add CO3 to it as anion
 
 __author__ = 'Michael King <michael.king@uni-konstanz.de'
 
-
 import os
+import re
 
-###############################################################################
-# co3.crd
-###############################################################################
-
-co3_crd="""\
+# CO3 file
+_STR_co3_crd = """\
 * CHARMM coordinates generated from VMD
          4  EXT
          1         1  CO3       C1              0.0000000000        0.0000000000        0.0000000000  HETB      11              0.0000000000
@@ -21,53 +18,167 @@ co3_crd="""\
          4         1  CO3       O3              0.2920000553       -0.0340003967       -1.2470016479  HETB      11              0.0000000000
 """
 
-with open("co3.crd", "w") as fp:
-  fp.write(co3_crd)
 
-###############################################################################
-# step2.2_ions.inp
-###############################################################################
+def write_co3(fname="co3.crd"):
+    # type: (str) -> None
+    """
+    Function to write a crd file containing CO3
 
-INP = "step2.2_ions.inp"
+    Parameters
+    ----------
+    fname : str, optional
+        filename
+    """
+    with open(fname, "w") as fp:
+        fp.write(_STR_co3_crd)
 
-print("Process: {}".format(INP))
 
-inp_file = open(INP, 'r').read()
-if not os.path.exists(INP+".bck"):
-    with open(INP+".bck", "w") as fp:
+def _get_subtype(astring):
+    """
+    Helper function to interpret the substype
+
+    * `"a"` for append,
+    * `"p"` for prepend
+    * `"s"` for substitute (append = prepend = False)
+    * `int` for the number of replacements
+
+    Parameters
+    ----------
+    astring : str
+        string to interpret.
+        May contain `"a"` for append,
+        `"p"` for prepend,
+        `"s"` for substitute (append = prepend = False),
+        `int` for the number of replacements
+    Returns
+    -------
+    prepend : bool
+        if it should be prepended
+    append : bool
+        if it should be appended
+    count : int or None
+        Counts how often it should be replaced
+    """
+    # check if we should append and/or prepend
+    append = True if astring.find("a") != -1 else False
+    prepend = True if astring.find("p") != -1 else False
+
+    if astring.find("s") != -1:
+        append = prepend = False
+
+    # get the integer in the string
+    str_match = re.search(r'\d+', astring)
+    count = None if str_match is None else int(str_match.group())
+
+    return prepend, append, count
+
+
+def patch_file(fname, list_replacements, output=None, backup=True, verbose=True):
+    # type: (str, list[list[str]], Union[str,None], bool, bool) -> None
+    """
+    Function to patch a file with a given list of replacements
+
+    Parameters
+    ----------
+    fname : str
+        filename of the patchfile
+    list_replacements : List[str]
+        List of replacement strings in the form of:
+
+        `list(sublist_1, sublist_2, ..., sublist_n)`
+
+        with `sublist_i` = `[sub_type, find_str, sub_str]`
+
+        `sub_type` :
+            * `"a"` for append,
+            * `"p"` for prepend
+            * `"s"` for substitute (append = prepend = False)
+            * `int` for the number of replacements
+    output : Union[str,None]
+        output filename
+    backup : bool, optional
+        if a backup should be written or not `fname` -> `fname.bck`
+    verbose : bool, optional
+        Turn verbose on / off
+    """
+
+    if verbose:
+        print("Process: {}".format(fname))
+
+    # read the file
+    inp_file = open(fname, 'r').read()
+
+    # create a backup if required
+    if backup:
+        if not os.path.exists(fname + ".bck"):
+            with open(fname + ".bck", "w") as fp:
+                fp.write(inp_file)
+        else:
+            if verbose:
+                print("Use: {}".format(fname + ".bck"))
+            inp_file = open(fname + ".bck", 'r').read()
+
+    # set output
+    output = fname if output is None else output
+
+    # iterate over the lis of replacements
+    for line in list_replacements:
+        prepend, append, count = _get_subtype(line[0])
+        find = line[1]
+        sub = line[2]
+
+        if prepend:
+            sub = sub + find
+        if append:
+            if prepend:
+                sub = sub + line[3]
+            else:
+                sub = find + sub
+
+        if count is None:
+            replaced_file = inp_file.replace(find, sub)
+        else:
+            replaced_file = inp_file.replace(find, sub, count)
+        assert len(replaced_file) != len(inp_file), "Could not find:\n{}".format(find)
+        inp_file = replaced_file
+
+    # write output
+    with open(output, 'w') as fp:
         fp.write(inp_file)
-else:
-    print("Use: {}".format(INP+".bck"))
-    inp_file = open(INP+".bck", 'r').read()
 
-#=====================================================#
-# define ncarbonate
-find='set negval   = 1\n'
-sub = find + "set carbonateval = 2\n"
-assert len(inp_file.replace(find,sub,1)) != len(inp_file), find
-inp_file=inp_file.replace(find,sub,1)
 
-#=====================================================#
-# calc ncarbonate
-find = 'calc nneg = @nneg + int ( @conc * 6.021 * 0.0001 * @volumn ) * @posval\n'
-sub = find + '''\
+if __name__ == '__main__':
+    # write CO3 file
+    write_co3(fname="co3.crd")
+
+    # =====================================================#
+    # step2.2_ions.inp
+
+    INP = "step2.2_ions.inp"
+
+    list_replacements = [
+        [  # define ncarbonate
+            'a1',
+            'set negval   = 1\n',
+            'set carbonateval = 2\n'
+        ],
+        [  # calc ncarbonate
+            'a1',
+            'calc nneg = @nneg + int ( @conc * 6.021 * 0.0001 * @volumn ) * @posval\n',
+            '''\
 calc ncarbonate = int( @nneg / @carbonateval )
 calc nneg = @nneg - @ncarbonate * @carbonateval
 '''
-assert len(inp_file.replace(find,sub,1)) != len(inp_file), find
-inp_file=inp_file.replace(find,sub,1)
-
-#=====================================================#
-# calc diff
-find = 'calc diff   = int ( ?cgtot + @npos*@posval - @nneg*@negval )'
-sub  = 'calc diff   = int ( ?cgtot + @npos*@posval - @nneg*@negval - @ncarbonate * @carbonateval )'
-assert len(inp_file.replace(find,sub)) != len(inp_file), find
-inp_file=inp_file.replace(find,sub)
-
-#=====================================================#
-# count nneg
-find = 'if diff .gt. 0 calc nneg = @nneg + 1\n'
-sub = '''\
+        ],
+        [  # calc diff
+            's',
+            'calc diff   = int ( ?cgtot + @npos*@posval - @nneg*@negval )',
+            'calc diff   = int ( ?cgtot + @npos*@posval - @nneg*@negval - @ncarbonate * @carbonateval )'
+        ],
+        [  # count nneg
+            's1',
+            'if diff .gt. 0 calc nneg = @nneg + 1\n',
+            '''\
    if diff .gt. 0 then 
     calc mod = @diff - 2 * int( @diff / 2)
     if mod .gt. 0 then
@@ -77,20 +188,18 @@ sub = '''\
     endif
    endif
 '''
-assert len(inp_file.replace(find,sub,1)) != len(inp_file), find
-inp_file=inp_file.replace(find,sub,1)
-
-#=====================================================#
-# Generate CO3
-find='! Randomly place the ions\n!\n'
-sub=find+'''
+        ],
+        [  # Generate CO3
+            'a1',
+            '! Randomly place the ions\n!\n',
+            '''
 !Generate CO3
 if @ncarbonate .gt. 0 then
   read sequence CO3 @ncarbonate
   generate CO3 first none last none setup warn
   open read card unit 10 name co3.crd
   read coor card unit 10 append
-  
+
   set i 2
   label loop
   if i .le. @ncarbonate then
@@ -100,48 +209,36 @@ if @ncarbonate .gt. 0 then
   endif
 endif
 '''
-assert len(inp_file.replace(find,sub,1)) != len(inp_file), find
-inp_file=inp_file.replace(find,sub,1)
-
-#=====================================================#
-# calc nion
-find = 'calc nion = @npos + @nneg\n'
-sub  = '''\
+        ],
+        [  # calc nion
+            's1',
+            'calc nion = @npos + @nneg\n',
+            '''\
 calc nion = @npos + @nneg + @ncarbonate
 calc nwoneg = @npos + @ncarbonate
 '''
-assert len(inp_file.replace(find,sub,1)) != len(inp_file), find
-inp_file=inp_file.replace(find,sub,1)
-
-#=====================================================#
-# calc xpos ypos zpos
-find= '''\
+        ],
+        [  # calc xpos ypos zpos
+            's1',
+            '''\
 calc xpos = @A / 2.0
 calc ypos = @B / 2.0
-calc zpos = @C / 2.0'''
-sub = '''\
+calc zpos = @C / 2.0''',
+            '''\
 calc xpos = 0 ! @A / 2.0
 calc ypos = 0 ! @B / 2.0
 calc zpos = 0 ! @C / 2.0
 '''
-assert len(inp_file.replace(find,sub,1)) != len(inp_file), find
-inp_file=inp_file.replace(find,sub,1)
-
-
-#=====================================================#
-# fix selection
-find = 'cons fix sele .not. ( segid CAL .or. segid CLA ) end'
-sub  = 'cons fix sele .not. ( segid CAL .or. segid CLA .or. segid CO3 ) end'
-assert len(inp_file.replace(find,sub,1)) != len(inp_file), find
-inp_file=inp_file.replace(find,sub,1)
-
-
-
-
-#=====================================================#
-# decide CO3
-find = 'set ion = CLA\n       calc j  = @j - @npos\n'
-sub  = '''\
+        ],
+        [  # fix selection
+            's1',
+            'cons fix sele .not. ( segid CAL .or. segid CLA ) end',
+            'cons fix sele .not. ( segid CAL .or. segid CLA .or. segid CO3 ) end'
+        ],
+        [  # decide CO3
+            's1',
+            'set ion = CLA\n       calc j  = @j - @npos\n',
+            '''\
 if j .gt. @nwoneg then 
          set ion = CLA
          calc j  = @j - @nwoneg
@@ -150,13 +247,12 @@ if j .gt. @nwoneg then
          calc j  = @j - @npos
        endif
 '''
-assert len(inp_file.replace(find,sub,1)) != len(inp_file), find
-inp_file=inp_file.replace(find,sub,1)
-#=====================================================#
-# coor set (TEST)
-
-find = 'coor set xdir @xpos  ydir @ypos  zdir @zpos select target end\n'
-sub  = '!' + find + '''\
+        ],
+        [  # coor set (TEST)
+            'ap1',
+            'coor set xdir @xpos  ydir @ypos  zdir @zpos select target end\n',
+            '!',
+            '''\
     coor copy comp
     if ion .eq. CO3 then
       calc phi = 360 * ?random
@@ -164,168 +260,118 @@ sub  = '!' + find + '''\
     endif
     coor tran comp xdir -@xpos ydir -@ypos zdir -@zpos select target end
 '''
-assert len(inp_file.replace(find,sub,1)) != len(inp_file), find
-inp_file=inp_file.replace(find,sub,1)
-
-#=====================================================#
-# dist calculation
-find = 'coor dist cut'
-sub  = 'coor dist comp cut'
-assert len(inp_file.replace(find,sub,1)) != len(inp_file), find
-inp_file=inp_file.replace(find,sub,1)
-
-#=====================================================#
-# coor set (SAVE)
-find = "coor set xdir @xsave  ydir @ysave  zdir @zsave select target end\n       goto doinit\n"
-sub = "!" + find + """\
+        ],
+        [  # dist calculation
+            's1',
+            'coor dist cut',
+            'coor dist comp cut'
+        ],
+        [  # coor set (SAVE)
+            'ap1',
+            "coor set xdir @xsave  ydir @ysave  zdir @zsave select target end\n       goto doinit\n",
+            '!',
+            """\
     else
        coor tran xdir -@xpos ydir -@ypos zdir -@zpos  select target end 
        update
 """
-assert len(inp_file.replace(find,sub,1)) != len(inp_file), find
-inp_file=inp_file.replace(find,sub,1)
+        ],
+        [  # !Image centering by residue
+            's',
+            '.or. resname CLA end',
+            '.or. resname CLA .or. resname CO3 end'
+        ],
+        [  # set fix
+            's',
+            'cons fix sele .not. ( segid CAL .or. segi CLA ) end',
+            'cons fix sele .not. ( segid CAL .or. segid CLA .or. segid CO3 ) end'
+        ],
+        [  # delete atom
+            's',
+            'delete atom sele .not. ( segid CAL .or. segid CLA ) end',
+            'delete atom sele .not. ( segid CAL .or. segid CLA .or. segid CO3 ) end'
+        ],
+        [  # set OUTPUT (number)
+            'p1',
+            '* set nneg = @nneg',
+            '* set ncarbonate = @ncarbonate ! Number of carbonate ions\n'
+        ],
+        [  # set OUTPUT (id set)
+            'p1',
+            '* set negid = CLA',
+            '* set carbid = CO3\n'
+        ],
+        [  # set OUTPUT (id set)
+            'p1',
+            '* read sequence CLA',
+            '* read sequence CO3 @ncarbonate !Generate CO3\n* generate CO3 first none last none setup\n'
+        ]
+    ]
 
-#=====================================================#
-# !Image centering by residue
-find = '.or. resname CLA end'
-sub  = '.or. resname CLA .or. resname CO3 end'
-assert len(inp_file.replace(find,sub)) != len(inp_file), find
-inp_file=inp_file.replace(find,sub)
+    # write file "step2.2_ions.inp"
+    patch_file(INP, list_replacements)
 
-#=====================================================#
-# set fix
-find = 'cons fix sele .not. ( segid CAL .or. segi CLA ) end'
-sub  = 'cons fix sele .not. ( segid CAL .or. segid CLA .or. segid CO3 ) end'
-assert len(inp_file.replace(find,sub)) != len(inp_file), find
-inp_file=inp_file.replace(find,sub)
+    # ===================================================== #
+    # step2_solvator.inp
 
-#=====================================================#
-# set fix
-find = 'delete atom sele .not. ( segid CAL .or. segid CLA ) end'
-sub  = 'delete atom sele .not. ( segid CAL .or. segid CLA .or. segid CO3 ) end'
-assert len(inp_file.replace(find,sub)) != len(inp_file), find
-inp_file=inp_file.replace(find,sub)
+    INP = "step2_solvator.inp"
 
-
-#=====================================================#
-# set OUTPUT
-# number 
-find = '* set nneg = @nneg'
-sub  = '* set ncarbonate = @ncarbonate ! Number of carbonate ions\n' + find
-assert len(inp_file.replace(find,sub,1)) != len(inp_file), find
-inp_file=inp_file.replace(find,sub,1)
-
-# id set
-find = '* set negid = CLA'
-sub  = '* set carbid = CO3\n' + find
-assert len(inp_file.replace(find,sub,1)) != len(inp_file), find
-inp_file=inp_file.replace(find,sub,1)
-
-# sequence
-find = '* read sequence CLA'
-sub  = '* read sequence CO3 @ncarbonate !Generate CO3\n* generate CO3 first none last none setup\n' + find
-assert len(inp_file.replace(find,sub,1)) != len(inp_file), find
-inp_file=inp_file.replace(find,sub,1)
-
-with open(INP, 'w') as fp:
-    fp.write(inp_file)
-    
-###############################################################################
-# step2_solvator.inp
-###############################################################################
-
-
-INP = "step2_solvator.inp"
-print("Process: {}".format(INP))
-
-inp_file = open(INP, 'r').read()
-if not os.path.exists(INP+".bck"):
-    with open(INP+".bck", "w") as fp:
-        fp.write(inp_file)
-else:
-    print("Use: {}".format(INP+".bck"))
-    inp_file = open(INP+".bck", 'r').read()
-
-#=====================================================#
-# define ncarbonate
-find='stream step2.2_ions.prm\n'
-sub = find + """
+    list_replacements = [
+        [  # define ncarbonate
+            'a1',
+            'stream step2.2_ions.prm\n',
+            """
 if ncarbonate .gt. 0 then
    read sequence @carbid @ncarbonate
    generate CO3 first none last none setup warn
 endif
 """
-assert len(inp_file.replace(find,sub,1)) != len(inp_file), find
-inp_file=inp_file.replace(find,sub,1)
-
-#=====================================================#
-# calc nion
-find = 'calc nion = @npos + @nneg\n'
-sub  = 'calc nion = @npos + @nneg + @ncarbonate\n'
-assert len(inp_file.replace(find,sub,1)) != len(inp_file), find
-inp_file=inp_file.replace(find,sub,1)
-
-#=====================================================#
-# set OUTPUT
-# number 
-find = '* set nneg = @nneg'
-sub  = '* set ncarbonate = @ncarbonate ! Number of carbonate ions\n' + find
-assert len(inp_file.replace(find,sub,1)) != len(inp_file), find
-inp_file=inp_file.replace(find,sub,1)
-
-# id set
-find = '* set negid = @negid'
-sub  = '* set carbid = @carbid\n' + find
-assert len(inp_file.replace(find,sub,1)) != len(inp_file), find
-inp_file=inp_file.replace(find,sub,1)
-
-# define
-find = '* if npos .gt. 0 then\n'
-sub = """\
+        ],
+        [  # calc nion
+            's1',
+            'calc nion = @npos + @nneg\n',
+            'calc nion = @npos + @nneg + @ncarbonate\n'
+        ],
+        [  # set OUTPUT (number)
+            'p1',
+            '* set nneg = @nneg',
+            '* set ncarbonate = @ncarbonate ! Number of carbonate ions\n'
+        ],
+        [  # set OUTPUT (id set)
+            'p1',
+            '* set negid = @negid',
+            '* set carbid = @carbid\n'
+        ],
+        [  # set OUTPUT (define)
+            'p1',
+            '* if npos .gt. 0 then\n',
+            """\
 * if ncarbonate .gt. 0 then
 *  read sequence @carbid @ncarbonate
 *  generate CO3 first none last none setup warn
 * endif
-""" + find
-assert len(inp_file.replace(find,sub,1)) != len(inp_file), find
-inp_file=inp_file.replace(find,sub,1)
+"""
+        ]
+    ]
+    # write file
+    patch_file(INP, list_replacements)
 
-with open(INP, 'w') as fp:
-    fp.write(inp_file)
+    # =====================================================#
+    # step3_pbcsetup.inp
+    INP = "step3_pbcsetup.inp"
 
+    list_replacements = [
+        [  # segid carbid
+            's',
+            'segid @posid .or. segid @negid',
+            'segid @posid .or. segid @negid .or. segid @carbid'
+        ],
+        [  # set OUTPUT (set id)
+            'p1',
+            '* set negid = @negid',
+            '* set carbid = @carbid\n'
+        ]
+    ]
 
-###############################################################################
-# step3_pbcsetup.inp
-###############################################################################
-
-INP = "step3_pbcsetup.inp"
-print("Process: {}".format(INP))
-
-inp_file = open(INP, 'r').read()
-if not os.path.exists(INP+".bck"):
-    with open(INP+".bck", "w") as fp:
-        fp.write(inp_file)
-else:
-    print("Use: {}".format(INP+".bck"))
-    inp_file = open(INP+".bck", 'r').read()
-
-
-#=====================================================#
-# segid carbid
-# number 
-find = 'segid @posid .or. segid @negid'
-sub  = 'segid @posid .or. segid @negid .or. segid @carbid'
-assert len(inp_file.replace(find,sub,1)) != len(inp_file), find
-inp_file=inp_file.replace(find,sub)
-
-#=====================================================#
-# set OUTPUT
-# id set
-find = '* set negid = @negid'
-sub  = '* set carbid = @carbid\n' + find
-assert len(inp_file.replace(find,sub,1)) != len(inp_file), find
-inp_file=inp_file.replace(find,sub,1)
-
-
-with open(INP, 'w') as fp:
-    fp.write(inp_file)
+    # write file
+    patch_file(INP, list_replacements)
