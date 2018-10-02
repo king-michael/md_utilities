@@ -47,7 +47,7 @@ def rational(r,  # Type: Union[List, Tuple, numpy.ndarray]
     if m is None:
         m = 2*n
 
-    rdist = (r - d_0) / d_0
+    rdist = (r - d_0) / r_0
 
     s = (1 - np.power(rdist, n)) / (1 - np.power(rdist, m))
 
