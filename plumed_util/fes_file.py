@@ -55,6 +55,8 @@ def load(inp_file):
     header : list[namedtuple]
         List of the CV's with:
         ``('name', 'min', 'max', 'nbin', 'periodic')``
+    edges : list[numpy.ndarray]
+        List of edges
     data : numpy.ndarray
         fes data
     """
@@ -62,10 +64,14 @@ def load(inp_file):
     header = get_header(inp_file)
     num_cv = len(header)
 
-    raw_data = np.genfromtxt(inp_file, usecols=[num_cv])
-    data = raw_data.reshape([cv.nbin for cv in header[::-1]])
+    raw_data = np.genfromtxt(inp_file, usecols=[i for i in range(num_cv + 1)])
+    edges = [raw_data[:, i].reshape([cv.nbin for cv in header[::-1]])[
+                 tuple(slice(None) if j == i else 0 for j in range(num_cv - 1, -1, -1))]
+             for i in range(num_cv)]
 
-    return header, data.T
+    data = raw_data[:, num_cv].reshape([cv.nbin for cv in header[::-1]])
+
+    return header, edges, data.T
 
 
 def plot(header, data, ax=None):
