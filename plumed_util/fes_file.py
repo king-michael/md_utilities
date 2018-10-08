@@ -29,12 +29,16 @@ def get_header(inp_file):
     CV = namedtuple('CV', ['name', 'min', 'max', 'nbin', 'periodic'])
     with open(inp_file, 'r') as fp:
         firstline = fp.readline().split()
-        NUM_CV =int((len(firstline)-3)/2)
+        if firstline[-1] == 'projection':
+            NUM_CV = int((len(firstline) - 1) / 2)
+        else:
+            NUM_CV =int((len(firstline) - 3) / 2)
+        handle_pi = lambda x: float(eval(x.replace('pi', '*pi') if re.match('\dpi', x) else x))
         for i in range(NUM_CV):
             header.append(CV(name=firstline[i+2],
-                min=float(fp.readline().split()[-1]),
-                max=float(fp.readline().split()[-1]),
-                nbin=int(fp.readline().split()[-1]),
+                min=handle_pi(fp.readline().split()[-1]),
+                max=handle_pi(fp.readline().split()[-1]),
+                nbin=int((fp.readline()).split()[-1]),
                 periodic=True if str(fp.readline().split()[-1]) == 'true' else False))
     return header
 
