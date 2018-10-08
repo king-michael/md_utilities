@@ -107,6 +107,8 @@ def plot(header, data, ax=None):
 
     if ax is None:
         fig, ax = plt.subplots()
+    else:
+        fig = ax.get_figure()
 
     extent = list(chain.from_iterable(map(lambda x: [x.min, x.max], header)))
 
@@ -115,4 +117,10 @@ def plot(header, data, ax=None):
                aspect=float(extent[1] - extent[0]) / (extent[3] - extent[2])
                )
 
-    return img
+    ax.set_xlabel(header[0].name)
+    ax.set_ylabel(header[1].name)
+
+    cbar = plt.colorbar(img, ax=ax)
+    cbar.set_label(r'Energy [$\frac{KJ}{mol}$]')
+
+    return img, cbar
