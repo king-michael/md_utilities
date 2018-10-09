@@ -3,10 +3,26 @@ Function to load a Free Energy File produced by
 ``plumed sum_hills``
 
 author : Michael King
+
+Examples
+--------
+Load ``matplotlib.pyplot`` first and define a ``figure``
+>>> import matplotlib.pyplot as plt
+>>> header, edges, data = load('fes.dat')
+>>> fig, ax = plt.subplots()
+>>> img, cbar = plot(header, data, ax=ax)
+
+or get the ``figure`` from the ``img`` object
+>>> header, edges, data = load('fes.dat')
+>>> img, cbar = plot(header, data)
+>>> fig = img.get_figure()
+>>> ax = fig.get_axes()
+
 """
 
 import numpy as np
 from collections import namedtuple
+import re
 
 
 def get_header(inp_file):
@@ -67,14 +83,17 @@ def load(inp_file):
 
     header = get_header(inp_file)
     num_cv = len(header)
-
+    bins = [cv.nbin for cv in header]
+    
     raw_data = np.genfromtxt(inp_file, usecols=[i for i in range(num_cv + 1)])
-    edges = [raw_data[:, i].reshape([cv.nbin for cv in header[::-1]])[
+    edges = [raw_data[:, i].reshape(bins[::-1])[
                  tuple(slice(None) if j == i else 0 for j in range(num_cv - 1, -1, -1))]
              for i in range(num_cv)]
 
-    data = raw_data[:, num_cv].reshape([cv.nbin for cv in header[::-1]])
+    data = np.transpose(raw_data[:, num_cv].reshape(bins[::-1]))
 
+    np.testing.assert_equal(data.shape, bins, "Shape is wrong {} == {}".format(data.shape,bins))
+    
     return header, edges, data.T
 
 
@@ -112,7 +131,7 @@ def plot(header, data, ax=None):
 
     extent = list(chain.from_iterable(map(lambda x: [x.min, x.max], header)))
 
-    img = ax.imshow(data, origin='lower',
+    img = ax.imshow(data.T, origin='lower',
                extent=extent,
                aspect=float(extent[1] - extent[0]) / (extent[3] - extent[2])
                )
