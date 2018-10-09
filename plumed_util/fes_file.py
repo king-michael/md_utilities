@@ -94,7 +94,7 @@ def load(inp_file):
 
     np.testing.assert_equal(data.shape, bins, "Shape is wrong {} == {}".format(data.shape,bins))
     
-    return header, edges, data.T
+    return header, edges, data
 
 
 def plot(header, data, ax=None):
