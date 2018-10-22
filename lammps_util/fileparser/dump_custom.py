@@ -63,3 +63,4 @@ def read_dump(fname):
             for i in range(n_atoms):
                 data[i] = tuple(fp.readline().decode().split())
             yield data
+    fp.close()
