@@ -22,6 +22,10 @@ def read_dump(fname):
     ------
     data: numpy.ndarray
         array of the data of the corresponding timestep.
+
+    Example:
+    --------
+    >>> data = np.array([data for data in read_dump(filename)])
     """
 
     if fname[-3:] == '.gz':
