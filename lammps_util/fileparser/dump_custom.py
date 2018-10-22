@@ -22,6 +22,14 @@ def read_dump(fname):
     ------
     data: numpy.ndarray
         array of the data of the corresponding timestep.
+
+    Example:
+    --------
+    Get all data:
+    >>> data = np.array([data for data in read_dump(filename)])
+    Get only forces:
+    >>> data = np.array([np.transpose([data['fx'], data['fy'], data['fz']])
+    >>>                  for data in read_dump(filename)])
     """
 
     if fname[-3:] == '.gz':
