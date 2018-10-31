@@ -4,6 +4,18 @@
 Parser for the custom dump file.
 
 Author : Michael King <michael.king@uni-konstanz.de>
+
+Todo
+----
+implement dtype
+    setting, so we can define which dtype our output should have (decreases memory)
+implement n_atoms_constant = True:
+    then we can try to build a function that:
+        1.) parse the whole script,
+        2.) gets number of lines, c
+        3.) calculates number timesteps in the file
+        4.) initalize the data array
+        5.) fast parse the file
 """
 
 import numpy as np
@@ -42,10 +54,14 @@ def read_dump(fname):
     while line:
         line = fp.readline()
         line_decode = line.decode().strip()
-        if line_decode == 'ITEM: TIMESTEP':
+
+        if line_decode == 'ITEM: TIMESTEP':  # "ITEM: TIMESTEP\n"
             ts = int(fp.readline().strip())
-            line = fp.readline()
+            line = fp.readline()  # "ITEM: NUMBER OF ATOMS\n"
             n_atoms = int(fp.readline().strip())
+
+            # orthogonal: "ITEM: BOX BOUNDS %s\n",boundstr
+            # triclinic: "ITEM: BOX BOUNDS xy xz yz %s\n",boundstr
             line = fp.readline()
             line_decode = line.decode().strip()
             line_split = line_decode.split()
@@ -54,24 +70,31 @@ def read_dump(fname):
                 triclinic = False
             elif len(line_split) == 9:
                 triclinic = True
+
             if triclinic:
+                # "%-1.16e %-1.16e %-1.16e\n",boxxlo,boxxhi,boxxy
                 boxxlo, boxxhi, boxxy = fp.readline().decode().strip().split()
                 boxylo, boxyhi, boxxz = fp.readline().decode().strip().split()
                 boxzlo, boxzhi, boxyz = fp.readline().decode().strip().split()
 
             else:
+                # "%-1.16e %-1.16e\n",boxxlo,boxxhi
                 boxxlo, boxxhi = fp.readline().decode().strip().split()
                 boxylo, boxyhi = fp.readline().decode().strip().split()
                 boxzlo, boxzhi = fp.readline().decode().strip().split()
 
-            line = fp.readline()
+
+            line = fp.readline()  # "ITEM: ATOMS %s\n",columns
             line_decode = line.decode().strip()
             line_split = line_decode.split()
             properties = line_split[2:]
-            data = np.zeros(n_atoms,
-                            dtype=[(prop, np.uint32 if prop in ['id', 'type'] else np.float)
-                                   for prop in properties])
+            # data = np.zeros(n_atoms,
+            #                 dtype=[(prop, np.uint32 if prop in ['id', 'type'] else np.float)
+            #                        for prop in properties])
+            data = np.zeros((n_atoms, len(properties)), dtype=np.float)
+
             for i in range(n_atoms):
                 data[i] = tuple(fp.readline().decode().split())
             yield data
+
     fp.close()
