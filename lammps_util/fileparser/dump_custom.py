@@ -41,21 +41,32 @@ def read_dump(fname):
     line = ' '
     while line:
         line = fp.readline()
-
         line_decode = line.decode().strip()
-        line_split = line_decode.split()
         if line_decode == 'ITEM: TIMESTEP':
             ts = int(fp.readline().strip())
-        elif line_decode == 'ITEM: NUMBER OF ATOMS':
+            line = fp.readline()
             n_atoms = int(fp.readline().strip())
-        elif line_decode.startswith('ITEM: BOX BOUNDS'):
+            line = fp.readline()
+            line_decode = line.decode().strip()
+            line_split = line_decode.split()
+
             if len(line_split) == 6:
                 triclinic = False
             elif len(line_split) == 9:
                 triclinic = True
+            if triclinic:
+                boxxlo, boxxhi, boxxy = fp.readline().decode().strip().split()
+                boxylo, boxyhi, boxxz = fp.readline().decode().strip().split()
+                boxzlo, boxzhi, boxyz = fp.readline().decode().strip().split()
+
             else:
-                raise NotImplementedError('Not implemented this type of a box:\n{}'.format(line_decode))
-        elif line_decode.startswith('ITEM: ATOMS'):
+                boxxlo, boxxhi = fp.readline().decode().strip().split()
+                boxylo, boxyhi = fp.readline().decode().strip().split()
+                boxzlo, boxzhi = fp.readline().decode().strip().split()
+
+            line = fp.readline()
+            line_decode = line.decode().strip()
+            line_split = line_decode.split()
             properties = line_split[2:]
             data = np.zeros(n_atoms,
                             dtype=[(prop, np.uint32 if prop in ['id', 'type'] else np.float)
