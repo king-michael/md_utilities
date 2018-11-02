@@ -141,6 +141,14 @@ def plot(header, data, ax=None):
 
 
 def update(t):
+    """
+    Update function to move the current point in the graph.
+
+    Parameters
+    ----------
+    t : int
+        frame
+    """
     find = colvar_data[colvar_data[:,0] == t]
     if find.size == 0:
         return
@@ -150,6 +158,10 @@ def update(t):
 
 
 def register():
+    """
+    Function to register VMD function `connect_plot`
+    which calls the python function `update($frame)` from within VMD
+    """
     evaltcl("""
     proc connect_plot {name index op} {
         # name == vmd_frame
@@ -163,6 +175,9 @@ def register():
 
 
 def start_trace():
+    """
+    Function to connect VMD function `connect_plot` with VMD variable change of `vmd_frame`
+    """
     global fig
     molid = evaltcl("molinfo top")
     evaltcl("trace variable vmd_frame({}) w connect_plot".format(molid))
@@ -170,11 +185,26 @@ def start_trace():
 
 
 def stop_trace():
+    """
+    Function to disconnect VMD function `connect_plot` with VMD variable change of `vmd_frame`
+    """
     molid = evaltcl("molinfo top")
     evaltcl("trace vdelete vmd_frame({}) w connect_plot".format(molid))
 
 
 def run(fes_file='fes.dat', colvar='COLVAR', connect=True):
+    """
+    Run routine to plot the free energy surface and connect the current VMD to a point of it.
+
+    Parameters
+    ----------
+    fes_file : str
+        path to fes file. (Default is 'fes.dat'.)
+    colvar : str
+        path to COLVAR file (Default is 'COLVAR'.)
+    connect : bool
+        Switch to connect the plot to the current VMD frame.
+    """
     assert os.path.exists(fes_file), "FES File: {} not found".format(fes_file)
     assert os.path.exists(colvar), "COLVAR file: {} not found".format(colvar)
 
