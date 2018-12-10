@@ -7,6 +7,7 @@ TODO:
 
 from VMD import evaltcl
 import numpy as np
+from numpy import pi
 import matplotlib.pyplot as plt
 from collections import namedtuple
 import os
