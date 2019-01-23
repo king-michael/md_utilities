@@ -39,53 +39,47 @@ def read_dump(fname):
     --------
     Get all data:
     >>> data = np.array([data for data in read_dump(filename)])
-    Get only forces:
-    >>> data = np.array([np.transpose([data['fx'], data['fy'], data['fz']])
-    >>>                  for data in read_dump(filename)])
+                  for data in read_dump(filename)])
     """
+    #Get only forces:
+    #>>> data = np.array([np.transpose([data['fx'], data['fy'], data['fz']])
+    #>>>
 
     if fname[-3:] == '.gz':
         import gzip
         fp = gzip.open(fname, 'r')
+        readline = lambda: fp.readline().decode()
     else:
         fp = open(fname, 'r')
+        readline = lambda: fp.readline()
 
     line = ' '
     while line:
-        line = fp.readline()
-        line_decode = line.decode().strip()
+        line = readline().strip()
 
-        if line_decode == 'ITEM: TIMESTEP':  # "ITEM: TIMESTEP\n"
-            ts = int(fp.readline().strip())
+        if line == 'ITEM: TIMESTEP':  # "ITEM: TIMESTEP\n"
+            ts = int(readline().strip())
             line = fp.readline()  # "ITEM: NUMBER OF ATOMS\n"
-            n_atoms = int(fp.readline().strip())
+            n_atoms = int(readline().strip())
 
             # orthogonal: "ITEM: BOX BOUNDS %s\n",boundstr
             # triclinic: "ITEM: BOX BOUNDS xy xz yz %s\n",boundstr
-            line = fp.readline()
-            line_decode = line.decode().strip()
+            line_decode = readline().strip()
             line_split = line_decode.split()
 
-            if len(line_split) == 6:
-                triclinic = False
-            elif len(line_split) == 9:
-                triclinic = True
-
-            if triclinic:
+            if len(line_split) == 6: # orthogonal box
                 # "%-1.16e %-1.16e %-1.16e\n",boxxlo,boxxhi,boxxy
-                boxxlo, boxxhi, boxxy = fp.readline().decode().strip().split()
-                boxylo, boxyhi, boxxz = fp.readline().decode().strip().split()
-                boxzlo, boxzhi, boxyz = fp.readline().decode().strip().split()
+                boxxlo, boxxhi, boxxy = readline().strip().split()
+                boxylo, boxyhi, boxxz = readline().strip().split()
+                boxzlo, boxzhi, boxyz = readline().strip().split()
 
-            else:
+            if len(line_split) == 9: # triclinic box
                 # "%-1.16e %-1.16e\n",boxxlo,boxxhi
-                boxxlo, boxxhi = fp.readline().decode().strip().split()
-                boxylo, boxyhi = fp.readline().decode().strip().split()
-                boxzlo, boxzhi = fp.readline().decode().strip().split()
+                boxxlo, boxxhi = readline().strip().split()
+                boxylo, boxyhi = readline().strip().split()
+                boxzlo, boxzhi = readline().strip().split()
 
-
-            line = fp.readline()  # "ITEM: ATOMS %s\n",columns
-            line_decode = line.decode().strip()
+            line_decode = readline().strip()  # "ITEM: ATOMS %s\n",columns
             line_split = line_decode.split()
             properties = line_split[2:]
             # data = np.zeros(n_atoms,
@@ -94,7 +88,7 @@ def read_dump(fname):
             data = np.zeros((n_atoms, len(properties)), dtype=np.float)
 
             for i in range(n_atoms):
-                data[i] = tuple(fp.readline().decode().split())
+                data[i] = tuple(readline().split())
             yield data
 
     fp.close()
