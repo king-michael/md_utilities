@@ -1,5 +1,9 @@
 # VMD utilities
 
+## connection_python
+Establish a connection between python
+and VMD via sending data over a socket.
+
 ## gopython
 
 ### live_fes.py
