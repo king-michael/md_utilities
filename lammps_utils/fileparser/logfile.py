@@ -3,7 +3,7 @@ import re
 import numpy as np
 
 
-def read_logfile(fname, combine=True, as_recarray=True):
+def read_logfile(fname, combine=True, as_recarray=True, try_corrupt_file=True):
     """
     Function to read a LAMMPS log file.
 
@@ -23,6 +23,8 @@ def read_logfile(fname, combine=True, as_recarray=True):
     as_recarray : bool, optional
         Switch if the result should be returned as ``numpy.recarray``.
         The column names will be used as field names.
+    try_corrupt_file : bool, optional
+        Try to read a corrupt file where the run didn't finish.
 
     Returns
     -------
@@ -32,6 +34,15 @@ def read_logfile(fname, combine=True, as_recarray=True):
         Extracted data. If ``combined`` is ``False`` a list of numpy arrays will be returned.
         If ``as_recarray`` is ``False``, the data is stored in a ``np.ndarray``
         otherwise in a ``np.recarray`` with the column names from the header as field names.
+
+    Raises
+    ------
+    AssertionError
+        ``'No thermodynamic output found in file : {}'``
+        If no thermodynamic output is found.
+    AssertionError
+        ``'Different thermodynamic output can not combine it'``
+        If ``combine=True`` but the different runs have different thermodynamic properties.
 
     Examples
     --------
@@ -65,6 +76,9 @@ def read_logfile(fname, combine=True, as_recarray=True):
     """
 
     pattern_data = re.compile('(^Step.*$)\n((?s:.*))\nLoop', re.MULTILINE)
+    pattern_data_corrupt = re.compile('(^Step.*$)\n((?s:.*))', re.MULTILINE)
+
+    dtype = np.float64  # used dtype for the columns
 
     list_header = []
     list_data = []
@@ -74,9 +88,18 @@ def read_logfile(fname, combine=True, as_recarray=True):
 
     for subtext in re.finditer(pattern_data, text):
         list_header.append(subtext.group(1).split())
-        list_data.append(np.genfromtxt(subtext.group(2).split('\n'), dtype=np.float64))
+        list_data.append(np.genfromtxt(subtext.group(2).split('\n'), dtype=dtype))
 
-    assert len(list_header) > 0, 'No thermodynamic output found in file'
+    if try_corrupt_file:
+        # get the position to start from
+        pos_start = subtext.end() if len(list_header) > 0 else 0
+        # extract data
+        for subtext in re.finditer(pattern_data_corrupt, text[pos_start:]):
+            list_header.append(subtext.group(1).split())
+            list_data.append(np.genfromtxt(subtext.group(2).split('\n'), dtype=dtype))
+            # TODO : add handling if line is not complete
+
+    assert len(list_header) > 0, 'No thermodynamic output found in file : {}'.format(fname)
 
     if len(list_header) == 1:
         # If it is only one data block
@@ -84,17 +107,17 @@ def read_logfile(fname, combine=True, as_recarray=True):
         data = list_data[0]
 
         if as_recarray:  # convert to recarray
-            data = np.rec.fromarrays(data.T, dtype=np.dtype([(f, np.float64) for f in header]))
+            data = np.rec.fromarrays(data.T, dtype=np.dtype([(f, dtype) for f in header]))
 
     elif combine:
         # If there are serveral data blocks and they should be combined
-        assert all([h == list_header[0] for h in list_header]), "Different thermodynamic output can not combine it"
+        assert all([h == list_header[0] for h in list_header]), 'Different thermodynamic output can not combine it'
 
         header = list_header[0]
         data = np.vstack(list_data)
 
         if as_recarray:  # convert to recarray
-            data = np.rec.fromarrays(data.T, dtype=np.dtype([(f, np.float64) for f in header]))
+            data = np.rec.fromarrays(data.T, dtype=np.dtype([(f, dtype) for f in header]))
 
     else:
         # If there are serveral data blocks and they should not be combined
@@ -102,7 +125,7 @@ def read_logfile(fname, combine=True, as_recarray=True):
         data = list_data
 
         if as_recarray:  # convert to recarray
-            data = [ np.rec.fromarrays(array.T, dtype=np.dtype([(f, np.float64) for f in header]))
-                     for header, array in zip(list_header, data) ]
+            data = [np.rec.fromarrays(array.T, dtype=np.dtype([(f, dtype) for f in header]))
+                    for header, array in zip(list_header, data)]
 
     return header, data
