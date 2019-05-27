@@ -39,7 +39,6 @@ def read_dump(fname):
     --------
     Get all data:
     >>> data = np.array([data for data in read_dump(filename)])
-                  for data in read_dump(filename)])
     """
     #Get only forces:
     #>>> data = np.array([np.transpose([data['fx'], data['fy'], data['fz']])
@@ -68,16 +67,16 @@ def read_dump(fname):
             line_split = line_decode.split()
 
             if len(line_split) == 6: # orthogonal box
+                # "%-1.16e %-1.16e\n",boxxlo,boxxhi
+                boxxlo, boxxhi = readline().strip().split()
+                boxylo, boxyhi = readline().strip().split()
+                boxzlo, boxzhi = readline().strip().split()
+            elif len(line_split) == 9: # triclinic box
                 # "%-1.16e %-1.16e %-1.16e\n",boxxlo,boxxhi,boxxy
                 boxxlo, boxxhi, boxxy = readline().strip().split()
                 boxylo, boxyhi, boxxz = readline().strip().split()
                 boxzlo, boxzhi, boxyz = readline().strip().split()
 
-            if len(line_split) == 9: # triclinic box
-                # "%-1.16e %-1.16e\n",boxxlo,boxxhi
-                boxxlo, boxxhi = readline().strip().split()
-                boxylo, boxyhi = readline().strip().split()
-                boxzlo, boxzhi = readline().strip().split()
 
             line_decode = readline().strip()  # "ITEM: ATOMS %s\n",columns
             line_split = line_decode.split()
