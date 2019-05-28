@@ -9,7 +9,7 @@ import numpy as np
 
 def combine_colvar_files(root, colvar_files):
     """
-    Combine multiple COLVAR files
+    Combine multiple COLVAR files for the same time steps.
 
     Parameters
     ----------
