@@ -5,7 +5,7 @@ import numpy as np
 
 def read_logfile(fname, combine=True, as_recarray=True, try_corrupt_file=True):
     """
-    Function to read a LAMMPS log file.
+    Function to read a LAMMPS log file and extract the thermodynamic output of them.
 
     Notes
     -----
@@ -129,3 +129,63 @@ def read_logfile(fname, combine=True, as_recarray=True, try_corrupt_file=True):
                     for header, array in zip(list_header, data)]
 
     return header, data
+
+
+def get_dof(logfile, n_atoms=None, dim=3):
+    """
+    Function to extract the number of degree of freedom from a LAMMPS logfile.
+
+    Parameter
+    ---------
+    logfile : str
+        Filename of a LAMMPS logfile
+    n_atoms : int, optional
+        Number of atoms, if `None` the number of atoms is read them from the logfile.
+        May fail with create_atoms commands (NOT TESTED).
+        Default is `None`.
+    dim : int, optional
+        Number of dimensions. Default is `3`.
+
+    Return
+    ------
+    dof : int
+        Number of degree of freedom.
+
+    TODO
+    ----
+    * implement get `n_atoms` from `create_atoms`
+    * implement read `dimension`
+    """
+    with open(logfile, 'r') as fp:
+        text = fp.read()
+
+    if n_atoms is None:
+        # last match should be enough -> should holw the most recent number of atoms
+        match = list(re.finditer('^(?:read_restart|read_data)[^\$\n]*$', text, re.MULTILINE))[-1]
+        n_atoms = re.findall('^  (\d+) atoms$', text[match.end():match.end() + 1000], re.MULTILINE)
+        assert len(n_atoms) == 1, \
+            "Problems with determing number of atoms found:\n".format(n_atoms)
+        n_atoms = int(n_atoms[0])
+
+    pattern_fix = r'^fix[ \t]*(?P<name>\w+)[ \t]*(?P<group>\w+)[ \t]*(?P<type>\w+)[^\$\n]*$'
+    pattern_shake = (r'^[ \t]*(\d+) = # of size 2 clusters\n'
+                     r'^[ \t]*(\d+) = # of size 3 clusters\n'
+                     r'^[ \t]*(\d+) = # of size 4 clusters\n'
+                     r'^[ \t]*(\d+) = # of frozen angles\n')
+
+    # list of fix not implemented yet
+    dof_fix = 0
+    fix_not_implement = ['poems', 'rigid', 'rigid/small', 'nvt/manifold/rattle', 'lb/rigid/pc/sphere']
+    for fix in re.finditer(pattern_fix, text, re.MULTILINE):
+        assert fix.group('type') not in fix_not_implement, \
+            "handling of fix '{}' not implemented yet".format(fix.group('type'))
+
+        if fix.group('type') == 'shake':
+            shake_atoms = re.search(pattern_shake, text[fix.end():fix.end() + 1000], re.MULTILINE).groups()
+            size_2, size_3, size_4, frozen_angles = tuple(map(int, shake_atoms))
+            dof_fix = size_2 * 1 + size_3 * 2 + size_4 * 3 + frozen_angles * 3
+
+    dof = dim * n_atoms
+    dof -= dim
+    dof -= dof_fix
+    return dof
