@@ -189,3 +189,16 @@ def get_dof(logfile, n_atoms=None, dim=3):
     dof -= dim
     dof -= dof_fix
     return dof
+
+
+def get_n_atoms(logfile):
+    with open(logfile, 'r') as fp:
+        text = fp.read()
+    # last match should be enough -> should holw the most recent number of atoms
+    match = list(re.finditer('^(?:read_restart|read_data)[^\$\n]*$', text, re.MULTILINE))[-1]
+    n_atoms = re.findall('^  (\d+) atoms$', text[match.end():match.end() + 1000], re.MULTILINE)
+    assert len(n_atoms) == 1, \
+        "Problems with determing number of atoms found:\n".format(n_atoms)
+    n_atoms = int(n_atoms[0])
+
+    return n_atoms
