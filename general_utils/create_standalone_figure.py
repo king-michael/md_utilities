@@ -23,7 +23,7 @@ def create_standalone_plot(fig, fname, backend=None):
     def in_ipynb():
         return 'ipykernel' in sys.modules
 
-    pkl_string = pickle.dumps(fig)
+    pkl_string = pickle.dumps(fig, protocol=0)
 
     with open(fname, 'w') as fp:
         fp.write('#!/usr/bin/env python{}.{} \n'.format(sys.version_info.major, sys.version_info.minor))
@@ -38,17 +38,15 @@ def create_standalone_plot(fig, fname, backend=None):
             import base64
             fp.write("import base64 \n")
             fp.write("pkl_string = b'''{}''' \n".format(base64.b64encode(pkl_string)))
+            fp.write('fig = pickle.loads( base64.b64decode(pkl_string) ) \n')
+
         else:
             fp.write("pkl_string = {} \n".format(pkl_string))
-
-        if sys.version_info.major < 3:
-            fp.write('fig = pickle.loads( base64.b64decode(pkl_string) ) \n')
-        else:
             fp.write('fig = pickle.loads(pkl_string) \n')
 
         if in_ipynb():
-            # ipython does not store the canvas manager...
-            fp.write('dummy = plt.figure() \n')
+            fp.write('dummy = plt.figure(figsize={}, dpi={}) \n'.format(
+                tuple(fig.get_size_inches()), fig.get_dpi()))
             fp.write('new_manager = dummy.canvas.manager \n')
             fp.write('new_manager.canvas.figure = fig \n')
             fp.write('fig.set_canvas(new_manager.canvas) \n')
