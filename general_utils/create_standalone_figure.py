@@ -17,7 +17,15 @@ def create_standalone_plot(fig, fname, backend=None):
         File name.
     backend : str or None, optional
         Sets the used backend. Default is None.
-        Expamle: 'Qt5Agg'
+        Expamle: 'Qt5Agg, TkAgg'
+
+    Examples
+    --------
+    Normal
+    >>> create_standalone_plot(fig, 'pmf')
+
+    Changing the backend
+    >>> create_standalone_plot(fig, 'pmf', backend='Qt5Agg')
     """
 
     def in_ipynb():
@@ -45,6 +53,7 @@ def create_standalone_plot(fig, fname, backend=None):
             fp.write('fig = pickle.loads(pkl_string) \n')
 
         if in_ipynb():
+            fp.write('fig._original_dpi = {} \n'.format(fig.get_dpi()))
             fp.write('dummy = plt.figure(figsize={}, dpi={}) \n'.format(
                 tuple(fig.get_size_inches()), fig.get_dpi()))
             fp.write('new_manager = dummy.canvas.manager \n')
