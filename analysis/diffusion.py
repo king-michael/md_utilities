@@ -61,18 +61,23 @@ def calculate_msd(ag, n_min=1, n_max_number_steps=np.inf, dt=1000):
     # temporary storage
     deque_coords = deque(maxlen=n_max)
     pgr = ProgressReporter_()
-    pgr.register(n_frames - n_window)
+    pgr.register(n_max - 1, description='prepare window', stage=0)
+    pgr.register(n_frames - n_window, description='move window', stage=1)
     for i, ts in enumerate(ag.universe.trajectory):
         deque_coords.append(ts.positions[ag._ix])
         if i >= (n_max - 1):
-            pgr.update(1)
+            pgr.update(1, stage=1)
             coords_t0 = deque_coords.popleft()
             msd_current = np.sum(np.power(np.asarray(deque_coords)[n_min - 1:] - coords_t0, 2), axis=1)
             xmsd += msd_current
             xmsd2 += np.power(msd_current, 2)
-    pgr.finish()
+        else:
+            pgr.update(1, stage=0)
+            if i == (n_max -2 ) :
+                pgr.finish(stage=0)
+    pgr.finish(stage=1)
     xmsd /= n_atoms * n_origin
-    xmsd2 /= n_atoms * n_origin
+    xmsd2 /= n_atoms * n_atoms * n_origin * n_origin
 
     xmsd_var = xmsd2 - np.power(xmsd, 2)
 
