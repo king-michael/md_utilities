@@ -49,12 +49,12 @@ def calculate_msd(ag, n_min=1, n_max_number_steps=np.inf, dt=1000):
     n_origin = int(np.floor(n_frames - 1) / 2)
     #  maximum number of intervals to contribute to diffusivity
     n_max = min(n_max_number_steps, n_origin)
-    n_origin = n_frames - n_max
+    n_origin = n_frames - n_max + 1
     n_min = min(n_min, n_max)
 
     n_window = n_max - n_min
     #  store mean square displacements in xmsd
-    time_vec = np.arange(dt * (n_min + 1), dt * (n_max + 1), dt, dtype=np.float64)
+    time_vec = np.arange(dt * n_min, dt * (n_max), dt, dtype=np.float64)
     xmsd = np.zeros((n_window, 3), dtype=np.float64)
     xmsd2 = np.zeros((n_window, 3), dtype=np.float64)
 
@@ -76,6 +76,7 @@ def calculate_msd(ag, n_min=1, n_max_number_steps=np.inf, dt=1000):
             if i == (n_max -2 ) :
                 pgr.finish(stage=0)
     pgr.finish(stage=1)
+
     xmsd /= n_atoms * n_origin
     xmsd2 /= n_atoms * n_atoms * n_origin * n_origin
 
