@@ -21,6 +21,12 @@ def extract_unit_constants_from_src(path_to_lammps_dir):
     -------
     constants : dict
         Dictionary with the constants for every unit.
+
+    Examples
+    --------
+    Get all Boltzman constants
+    >>> constants = extract_unit_constants_from_src('/home/someone/lammps')
+    >>> dict((k,v['boltz']) for k,v in constants.items())
     """
     file_path = os.path.join(path_to_lammps_dir, 'src', 'update.cpp')
 
