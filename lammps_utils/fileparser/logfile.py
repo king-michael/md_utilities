@@ -202,3 +202,17 @@ def get_n_atoms(logfile):
     n_atoms = int(n_atoms[0])
 
     return n_atoms
+
+
+def get_units(logfile):
+    with open(logfile, 'r') as fp:
+        text = fp.read()
+    match = list(re.finditer('^units[ \t]+(\w+).*$', text, re.MULTILINE))
+    if len(match) == 0:
+        units = 'lj'
+    elif len(match) == 1:
+        units = match[0].group(1)
+    else:
+        raise NotImplementedError("Multiple units commands. Handling not implemented.")
+
+    return units
