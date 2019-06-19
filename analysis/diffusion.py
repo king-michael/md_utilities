@@ -85,6 +85,90 @@ def calculate_msd(ag, n_min=1, n_max_number_steps=np.inf, dt=1000):
     return time_vec, xmsd, xmsd_var
 
 
+def calculate_msd_per_time(ag, n_min=1, n_max_number_steps=np.inf, dt=1000):
+    r"""
+
+    Important parameters
+
+    * ``n_max = min( int(np.floor(n_frames - 1) / 2) , n_origin)``
+    * ``n_origin = n_frames - n_max + 1``
+    * ``n_window = n_max - n_min``
+
+    Parameter
+    ---------
+    ag :
+        atomgroup
+    n_min : int
+        Minimum number of intervals to contribute to diffusivity.
+    n_max_number_steps : int
+        Maximum number of intervals to contribute to diffusivity.
+        Spans together with `n_min` the window which is moved along the trajectory.
+        Use `np.inf` to use the maximum possible length (``int(np.floor(n_frames-1) / 2)``).
+        Default is `np.inf`.
+    dt: float
+        Time step between frames. [fs]
+
+    Returns
+    -------
+    time_vec : np.darray
+        Time vector per time step with shape ``(n_origin, )``
+    xmsd : np.ndarray
+        MSD vector per time step with shape  ``(n_origin, n_window, 3)``
+    xmsd_var : np.ndarray
+        Variance of the MSD per time step with shape ``(n_origin, n_window, 3)``
+
+    Examples
+    --------
+    >>> u = MDAnalysis.Universe('water_30A_mW.psf', 'trajectory.1.dcd')
+    >>> ag = u.atoms.select_atoms('type mW')
+    >>> dt = 5000 # time in fs
+    >>> time_vec, xmsd, xmsd_var = calculate_msd(ag, n_min=1, n_max_number_steps=np.inf, dt=dt)
+    """
+    assert n_min >= 1, 'Need at least one frame!'
+
+    n_frames = ag.universe.trajectory.n_frames
+    n_atoms = ag.n_atoms
+
+    n_origin = int(np.floor(n_frames - 1) / 2)
+    #  maximum number of intervals to contribute to diffusivity
+    n_max = min(n_max_number_steps, n_origin)
+    n_origin = n_frames - n_max + 1
+    n_min = min(n_min, n_max)
+
+    n_window = n_max - n_min
+    #  store mean square displacements in xmsd
+    time_vec = np.arange(dt * n_min, dt * (n_max), dt, dtype=np.float64)
+    xmsd = np.zeros((n_origin, n_window, 3), dtype=np.float64)
+    xmsd2 = np.zeros((n_origin, n_window, 3), dtype=np.float64)
+
+    # temporary storage
+    deque_coords = deque(maxlen=n_max)
+    pgr = ProgressReporter_()
+    pgr.register(n_max - 1, description='prepare window', stage=0)
+    pgr.register(n_frames - n_window, description='move window', stage=1)
+    for i, ts in enumerate(ag.universe.trajectory):
+        deque_coords.append(ts.positions[ag._ix])
+        if i >= (n_max - 1):
+            pgr.update(1, stage=1)
+            coords_t0 = deque_coords.popleft()
+            msd_current = np.sum(np.power(np.asarray(deque_coords)[n_min - 1:] - coords_t0, 2), axis=1)
+            j = i - n_max
+            xmsd[j] = msd_current
+            xmsd2[j] = np.power(msd_current, 2)
+        else:
+            pgr.update(1, stage=0)
+            if i == (n_max -2 ) :
+                pgr.finish(stage=0)
+    pgr.finish(stage=1)
+
+    xmsd /= n_atoms
+    xmsd2 /= n_atoms * n_atoms
+
+    xmsd_var = xmsd2 - np.power(xmsd, 2)
+
+    return time_vec, xmsd, xmsd_var
+
+
 def calculate_diffusion_coefficent(time, msd, sigma=None, absolute_sigma=True, return_per_dim=False, return_fit=False,
                                    verbose=False):
     """
