@@ -69,7 +69,7 @@ def convert_box(box,
             lx = xhi - xlo
             ly = yhi - ylo
             lz = zhi - zlo
-            xy, xz, yz = 0.0
+            xy = xz = yz = 0.0
             calculate_box = True
         else:
             raise UserWarning("Box could not be read.\nbox={}".format(box))
