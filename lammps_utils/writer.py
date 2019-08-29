@@ -80,9 +80,10 @@ class LAMMPSDATA:
         self.n_impropers = 0  # DUMMY
         self.n_improper_types = 0  # DUMMY
 
+        self.charges = np.zeros(self.n_atoms) # DUMMY
         self.names = ['X' for _ in range(self.n_atoms)]  # DUMMY
         self.resnames = ['X' for _ in range(self.n_atoms)]  # DUMMY
-        self.resid = np.zeros(self.n_atoms, dtype=int)  # DUMMY
+        self.resid = np.ones(self.n_atoms, dtype=int)  # DUMMY
 
     def convert_box(self,
                     box,
@@ -241,12 +242,14 @@ class LAMMPSDATA:
         # Atoms
         fp.write('\n Atoms\n\n')
         # TODO : implement other line
-        line_format = '{id:d} {type:d} {resid:d} {x:f} {y:f} {z:f} # {name:%ds} {resname:%ds}\n'
+        line_format = '{id:d} {type:d} {resid:d} {charge:f} {x:f} {y:f} {z:f} # {name:%ds} {resname:%ds}\n'
         line_format = line_format % (max(len(s) for s in self.names), max(len(s) for s in self.resnames))  # max len
-        for i, t, r, x, y, z, n, rn in zip(self.ids, self.types, self.resid,
-                                           self.positions[:, 0], self.positions[:, 1], self.positions[:, 2],
-                                           self.names, self.resnames):
-            fp.write(line_format.format(id=i, type=t, resid=r, x=x, y=y, z=z, name=n, resname=rn))
+        for i, t, r, c, x, y, z, n, rn in zip(
+                self.ids, self.types, self.resid, self.charges,
+                self.positions[:, 0], self.positions[:, 1], self.positions[:, 2],
+                self.names, self.resnames):
+            fp.write(line_format.format(id=i, type=t, resid=r, charge=c,
+                                        x=x, y=y, z=z, name=n, resname=rn))
 
         # @TODO : Bonds
         # @TODO : Angles
