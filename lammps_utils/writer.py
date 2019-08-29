@@ -225,11 +225,11 @@ class LAMMPSDATA:
                      ' {n_improper_types:d} improper types\n'
                  ).format(**self.__dict__))
         # BOX
-        box_lammps = self.convert_box(box, return_box_lammps=True)
+        box_lammps = self.convert_box(self.box, return_box_lammps=True)
         fp.write((' {:g} {:g} xlo xhi\n'
                   ' {:g} {:g} ylo yhi\n'
                   ' {:g} {:g} zlo zhi\n').format(*box_lammps[0], *box_lammps[1], *box_lammps[2]))
-        if len(box) == 4:
+        if len(self.box) == 4:
             fp.write(' {:g} {:g} {:g} xy xz yz\n'.format())
 
         # Masses
