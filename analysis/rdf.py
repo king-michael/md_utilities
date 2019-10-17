@@ -303,3 +303,125 @@ def calculate_S(r, gr, q=None,  rho=1.0):
     s *= np.sum(rr * np.sin(qq * rr) * (grgr - 1), axis=0)
 
     return q, s
+
+
+## CAPPED DISTANCE VERSION
+## - slower for the test system (as fast as MDAnalysis.analysis.rdf.InterRDF) when using 'nsgrid'
+## - might shine with very big systems
+# from MDAnalysis.lib.distances import capped_distance
+# def calculate_rdf_inter(ag1,
+#                         ag2,
+#                         bin_range=(0, 15),
+#                         bins=100,
+#                         start=0,
+#                         end=None,
+#                         step=None,
+#                         backend='serial',  # type: str, {'serial', 'OpenMP'}
+#                         search_method=None,
+#                         max_memory_usage=None,
+#                         verbose=False
+#                        ):
+#     """
+#     Calculates the radial distribution function for all atoms in the AtomGroup with them self.
+#
+#     Parameter
+#     ---------
+#     ag : MDAnalysis.core.groups.AtomGroup
+#         Atom group
+#     bin_range : tuple(int,int), optional
+#         Bin range to use. Default is `(0, 15)`.
+#     bins : int, optional
+#         Number of bins used. Default is `100`.
+#     start : int, optional
+#         Starting frame. Default is `0`.
+#     end : int or None, optional
+#         Final frame. `None` for last frame. Default is `None`.
+#     step : int, optional
+#         Step size. Default is `1`.
+#     backend : str, optional
+#         Backend to use.  `{'serial', 'OpenMP'}`. Default is `serial`.
+#     max_memory_usage : int or None, optional
+#         Maximum memory to use.
+#         If it's not `None`, results will be buffered before calculating the histogram.
+#         Default is `None`.
+#
+#     Returns
+#     -------
+#     bins : numpy.ndarray
+#         Array of the bin centers.
+#     rdf : numpy.ndarray
+#         Radial distribution function.
+#     """
+#     # settings
+#     rdf_settings = dict(bins=bins,
+#                         range=bin_range)
+#
+#     assert ag1.universe == ag2.universe, 'Universe of ag1 and ag2 are different'
+#
+#     # general constants
+#     trj_slice = slice(start, end, step)
+#     n_frames = len(ag1.universe.trajectory[trj_slice])
+#     n_pairs = ag1.n_atoms * ag2.n_atoms
+#
+#     # handle maximum memory requirement
+#     if max_memory_usage is not None:
+#         # calculate the needed array size
+#         size_distance_array = int(n_pairs * 8)
+#         n_buffer = max_memory_usage // size_distance_array
+#         assert n_buffer != 0, "Not enough memory to calculate the rdf with this implementation. " + \
+#                               "Need at least {} bytes".format(size_distance_array)
+#     else:
+#         n_buffer = 1
+#
+#
+#      # init storage array
+#     dummy_storage = np.empty((n_buffer * n_pairs), dtype=np.float64)
+#     # init histogram
+#     count, edges = np.histogram([-1], **rdf_settings)
+#     volume = 0  # initialze the volume
+#     b = 0       # initialize buffer
+#     _minrange = rdf_settings['range'][0]
+#     _maxrange = rdf_settings['range'][1]
+#     _maxbuffer = (n_buffer - 1) * (n_pairs)
+#     if verbose:
+#         p = ProgressReporter_()
+#         p.register(n_frames, description="calculate g(r)")
+#     for ts in ag1.universe.trajectory[trj_slice]:
+#         if verbose:
+#             p.update(1)
+#         # calculate distances
+#         dist = capped_distance(ag1.positions,
+#                                ag2.positions,
+#                                max_cutoff=_maxrange,
+#                                min_cutoff=_minrange,
+#                                box=ts.dimensions,
+#                                return_distances=True,
+#                                method=search_method)[1]
+#         b_end = b+dist.size
+#         dummy_storage[b:b_end] = dist
+#         b=b_end
+#         if b > _maxbuffer:
+#             tmp_count, _ = np.histogram(dummy_storage[:b], **rdf_settings)
+#             count += tmp_count
+#             b = 0  # reset b
+#
+#         volume += ts.volume
+#     if b > 0:
+#         tmp_count, _ = np.histogram(dummy_storage[:b], **rdf_settings)
+#         count += tmp_count
+#     if verbose:
+#         p.finish()
+#
+#      # Volume in each radial shell
+#     vol = np.power(edges[1:], 3) - np.power(edges[:-1], 3)
+#     vol *= 4 / 3.0 * np.pi
+#
+#     # Average number density
+#     box_vol = volume / n_frames
+#     density = n_pairs / box_vol
+#
+#     rdf = count / (density * vol * n_frames)
+#     bins = (edges[:-1] + edges[1:]) / 2.0
+#
+#
+#     return bins, rdf
