@@ -75,7 +75,8 @@ def read_logfile(fname, combine=True, as_recarray=True, try_corrupt_file=True):
 
     """
 
-    pattern_data = re.compile('(^Step.*$)\n((?s:.*))\nLoop', re.MULTILINE)
+    #pattern_data = re.compile('(^Step.*$)\n((?s:.*))\nLoop', re.MULTILINE)
+    pattern_data = re.compile('(^Step.*$)\n((?s:[0-9 \.\n-]*))\nLoop', re.MULTILINE)
     pattern_data_corrupt = re.compile('(^Step.*$)\n((?s:.*))', re.MULTILINE)
 
     dtype = np.float64  # used dtype for the columns
