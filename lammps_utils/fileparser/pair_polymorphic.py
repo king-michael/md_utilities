@@ -198,7 +198,7 @@ class WriterPolymorphic():
         prefactor = np.sqrt(lam * eps)
         if prefactor == 0.0:
             return Y
-        expfactor = gam * a
+        expfactor = gam * sig
         tmp = np.where(X < rcut)
         Y[tmp] = prefactor * np.exp(expfactor / (X[tmp] - rcut))
         return Y
