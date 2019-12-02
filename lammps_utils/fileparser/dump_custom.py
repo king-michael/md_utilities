@@ -91,3 +91,90 @@ def read_dump(fname):
             yield data
 
     fp.close()
+
+
+class DumpFileWriter():
+    format_conv = {
+        'id': '%d',
+        'type': '%d',
+        'x': '%g',
+        'y': '%g',
+        'z': '%g',
+    }
+
+    # TODO: Implement multiple box versions [a,b,c,alpha,beta,gamma]
+    def __init__(self, filename, fields=['id', 'x', 'y', 'z'], triclinic=False):
+        """
+        LAMMPS Dumpfile writer
+
+        Parameters
+        ----------
+        filename : str
+            Filename
+        fields : List[str]
+            List of Fields to write
+        triclinic : bool
+            Boolean if the box is triclinic or not
+        """
+        self.filename = filename
+        self.fp = open(filename, 'w')
+        self.fields = fields
+        self.triclinic = triclinic
+        self.last_timestep = 0
+        self.stride = 1
+
+        self.format_str = [self.format_conv.get(f, '%g') for f in fields]
+
+    def write(self, data, box, ts=None):
+        """
+
+        Parameters
+        ----------
+        data : List[list] or np.ndarray
+            output data. (n_atoms, n_fields)
+        box : list[list] or np.ndarray
+            Simulation box `[[xlo, xi], [ylo, yhi], [zlo, zhi]]`
+                        or `[[xlo, xi, xy], [ylo, yhi, xz], [zlo, zhi, yz]]`
+        ts : int or None
+            Timestep
+
+        Returns
+        -------
+
+        """
+        if ts is None:
+            ts = self.last_timestep + self.stride
+
+        n_atoms = len(data)
+        self.fp.write('ITEM: TIMESTEP\n{}\n'.format(ts))
+        self.fp.write('ITEM: NUMBER OF ATOMS\n{}\n'.format(n_atoms))
+        if self.triclinic:
+            assert len(box) == 3
+            assert len(box[0]) == len(box[1]) == len(box[2]) == 3
+            self.fp.write('BOX BOUNDS xy xz yz xx yy zz\n')
+            self.fp.write('{} {} {}\n{} {} {}\n{} {} {}\n'.format(*box[0], *box[1], *box[2]))
+        else:
+            assert len(box) == 3
+            assert len(box[0]) == len(box[1]) == len(box[2]) == 2
+            self.fp.write('ITEM: BOX BOUNDS xx yy zz\n')
+            self.fp.write('{} {}\n{} {}\n{} {}\n'.format(*box[0], *box[1], *box[2]))
+
+        self.fp.write('ITEM: ATOMS ' + ' '.join(self.fields) + '\n')
+        np.savetxt(self.fp, data, fmt=self.format_str)
+        self.fp.flush()
+
+    def close(self):
+        self.fp.close()
+
+    def __repr__(self):
+        return '{__name__}({filename}, fields={fields}, triclinic={triclinic})'.format(
+            __name__=self.__class__.__name__, **self.__dict__)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
+    def __del__(self):
+        self.close()
