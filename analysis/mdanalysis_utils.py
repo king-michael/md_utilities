@@ -47,7 +47,7 @@ def center_around_group(ag, iterations=1, center='origin', weights='mass'):
 
     Returns
     -------
-    Callable : transformation function
+
     """
     from MDAnalysis.lib.distances import apply_PBC
 
@@ -80,8 +80,9 @@ def center_around_group(ag, iterations=1, center='origin', weights='mass'):
             ts.positions -= com - box_half
             ts.positions = apply_PBC(ts.positions, ts.dimensions)
             # move center of atoms to origin
-            if center:
-                ts.positions -= box_half
+            #ts.positions -= box_half
+        if center:
+            ts.positions -= box_half
         return ts
 
     return transformation
